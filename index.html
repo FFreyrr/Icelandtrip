@@ -50,6 +50,10 @@
     padding: 16px;
   }
 
+  .drag-handle {
+    display: none;
+  }
+
   .title {
     font-size: 19px;
     font-weight: 850;
@@ -309,10 +313,39 @@
       top: auto;
       bottom: 0;
       width: 100vw;
-      max-height: 34dvh;
+      height: var(--panel-height, 34dvh);
+      min-height: 78px;
+      max-height: calc(100dvh - 18px);
       border-radius: 22px 22px 0 0;
-      padding: 13px 13px calc(18px + env(safe-area-inset-bottom));
+      padding: 8px 13px calc(18px + env(safe-area-inset-bottom));
       box-shadow: 0 -10px 34px rgba(15, 23, 42, 0.24);
+    }
+
+    .panel.dragging {
+      transition: none;
+      user-select: none;
+    }
+
+    .drag-handle {
+      display: block;
+      width: 54px;
+      height: 22px;
+      margin: 0 auto 4px;
+      cursor: ns-resize;
+      touch-action: none;
+      position: relative;
+    }
+
+    .drag-handle::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 8px;
+      width: 46px;
+      height: 5px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: #cbd5e1;
     }
 
     .title {
@@ -416,7 +449,7 @@
 
   @media (max-width: 420px) {
     .panel {
-      max-height: 36dvh;
+      height: var(--panel-height, 36dvh);
     }
 
     .subtitle {
@@ -441,7 +474,8 @@
 <body>
 <div id="map"></div>
 
-<div class="panel">
+<div class="panel" id="panel">
+  <div class="drag-handle" id="dragHandle" aria-label="拖动面板"></div>
   <h1 class="title">冰岛 6 天自驾动态路线图</h1>
   <p class="subtitle">电脑端和手机端自适应。点击 Day 1–Day 6 查看路线动画、景点编号和真实照片；轨迹会保留，直到点击“清除轨迹”。</p>
 
@@ -798,8 +832,67 @@ function initControls() {
   document.getElementById('playAllBtn').onclick = playAll;
 }
 
+function initPanelDrag() {
+  const panel = document.getElementById('panel');
+  const handle = document.getElementById('dragHandle');
+  if (!panel || !handle) return;
+
+  let startY = 0;
+  let startHeight = 0;
+  let dragging = false;
+
+  function viewportHeight() {
+    return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  }
+
+  function clampHeight(height) {
+    const max = viewportHeight() - 18;
+    const min = 78;
+    return Math.min(max, Math.max(min, height));
+  }
+
+  function setPanelHeight(height) {
+    panel.style.setProperty('--panel-height', `${clampHeight(height)}px`);
+    setTimeout(() => map.invalidateSize(), 80);
+  }
+
+  handle.addEventListener('pointerdown', event => {
+    dragging = true;
+    startY = event.clientY;
+    startHeight = panel.getBoundingClientRect().height;
+    panel.classList.add('dragging');
+    handle.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  handle.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    const delta = startY - event.clientY;
+    setPanelHeight(startHeight + delta);
+  });
+
+  function endDrag(event) {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('dragging');
+    if (handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('resize', () => {
+    if (panel.style.getPropertyValue('--panel-height')) {
+      setPanelHeight(panel.getBoundingClientRect().height);
+    }
+  });
+}
+
 initStaticReferenceMarkers();
 initControls();
+initPanelDrag();
 loadAllPhotos();
 
 window.addEventListener('resize', () => {
