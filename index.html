@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Iceland 6-Day Responsive Road Trip Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0f172a" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --text: #172033;
+    --muted: #64748b;
+    --line: #e5e7eb;
+    --shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: Inter, Arial, "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: #eef4f7;
+  }
+
+  #map {
+    height: 100dvh;
+    width: 100vw;
+    background: #eef4f7;
+  }
+
+  .panel {
+    position: absolute;
+    z-index: 1000;
+    left: 18px;
+    top: 18px;
+    width: min(430px, calc(100vw - 36px));
+    max-height: calc(100dvh - 36px);
+    overflow-y: auto;
+    background: var(--panel-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.78);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+
+  .title {
+    font-size: 19px;
+    font-weight: 850;
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 14px;
+    line-height: 1.45;
+  }
+
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  button {
+    border: none;
+    border-radius: 13px;
+    padding: 10px 9px;
+    font-weight: 760;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+    transition: transform .16s ease, filter .16s ease, opacity .16s ease;
+  }
+
+  button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .46; cursor: not-allowed; transform: none; }
+
+  .utility {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .utility button {
+    flex: 1;
+    background: #263238;
+  }
+
+  .status {
+    border: 1px solid var(--line);
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.45;
+    margin-bottom: 12px;
+  }
+
+  .gallery-title {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    font-size: 14px;
+    font-weight: 800;
+    margin: 10px 0 8px;
+  }
+
+  .gallery-hint {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .gallery {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .card {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 10px;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #edf0f3;
+    border-radius: 14px;
+    padding: 8px;
+    box-shadow: 0 6px 16px rgba(15,23,42,.06);
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(15,23,42,.09);
+  }
+
+  .card img {
+    width: 92px;
+    height: 66px;
+    border-radius: 10px;
+    object-fit: cover;
+    background:#e5e7eb;
+  }
+
+  .card .name {
+    font-size: 13px;
+    font-weight: 850;
+    line-height: 1.25;
+  }
+
+  .card .meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.25;
+  }
+
+  .num-badge {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    height: 21px;
+    min-width: 31px;
+    padding: 0 6px;
+    border-radius: 999px;
+    color:#fff;
+    font-size: 11px;
+    font-weight:900;
+    margin-right: 4px;
+  }
+
+  .tiny-ref-marker {
+    min-width: 28px;
+    height: 22px;
+    padding: 0 5px;
+    border-radius: 999px;
+    color:#fff;
+    font-size:10px;
+    font-weight:900;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid white;
+    box-shadow:0 5px 14px rgba(15,23,42,.18);
+    opacity:.76;
+  }
+
+  .photo-marker {
+    position: relative;
+    width: 88px;
+    height: 70px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 3px solid white;
+    box-shadow: 0 8px 24px rgba(15,23,42,.28);
+    background: #e5e7eb;
+  }
+
+  .photo-marker img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+
+  .photo-marker .label {
+    position:absolute;
+    left:4px;
+    top:4px;
+    padding:2px 6px;
+    border-radius:999px;
+    color:#fff;
+    font-size:11px;
+    line-height:1;
+    font-weight:950;
+    box-shadow:0 3px 10px rgba(0,0,0,.25);
+  }
+
+  .pulse-marker {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 4px solid currentColor;
+    box-shadow: 0 0 0 0 currentColor;
+    animation: pulse 1.2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0,0,0,.25); transform: scale(.95); }
+    70% { box-shadow: 0 0 0 14px rgba(0,0,0,0); transform: scale(1); }
+    100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); transform: scale(.95); }
+  }
+
+  .popup-img {
+    width: 230px;
+    height: 145px;
+    object-fit: cover;
+    border-radius: 12px;
+    display:block;
+    margin: 7px 0;
+    background:#e5e7eb;
+  }
+
+  .legend {
+    display: grid;
+    gap: 7px;
+    font-size: 13px;
+  }
+
+  .legend-item {
+    display: grid;
+    grid-template-columns: 14px 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
+  .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    margin-top: 4px;
+  }
+
+  .legend-title { font-weight: 700; }
+  .legend-sub { color: var(--muted); font-size: 12px; }
+
+  .leaflet-popup-content {
+    font-family: Inter, Arial, "Microsoft YaHei", sans-serif;
+  }
+
+  @media (min-width: 1200px) {
+    .panel {
+      width: 455px;
+      left: 22px;
+      top: 22px;
+      max-height: calc(100dvh - 44px);
+    }
+
+    .gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    #map {
+      height: 100dvh;
+      width: 100vw;
+    }
+
+    .panel {
+      left: 0;
+      right: 0;
+      top: auto;
+      bottom: 0;
+      width: 100vw;
+      max-height: 55dvh;
+      border-radius: 22px 22px 0 0;
+      padding: 13px 13px calc(18px + env(safe-area-inset-bottom));
+      box-shadow: 0 -10px 34px rgba(15, 23, 42, 0.24);
+    }
+
+    .title {
+      font-size: 16px;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 9px;
+      scrollbar-width: none;
+    }
+
+    .buttons::-webkit-scrollbar {
+      display: none;
+    }
+
+    .buttons button {
+      min-width: 86px;
+      flex: 0 0 auto;
+      padding: 9px 8px;
+      font-size: 12px;
+      border-radius: 999px;
+    }
+
+    .utility {
+      margin-bottom: 9px;
+    }
+
+    .utility button {
+      padding: 9px 8px;
+      font-size: 12px;
+    }
+
+    .status {
+      font-size: 12px;
+      padding: 9px 10px;
+      margin-bottom: 8px;
+    }
+
+    .gallery-title {
+      margin: 8px 0 7px;
+      font-size: 13px;
+    }
+
+    .gallery {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .card {
+      grid-template-columns: 86px 1fr;
+      padding: 7px;
+      border-radius: 13px;
+    }
+
+    .card img {
+      width: 86px;
+      height: 60px;
+    }
+
+    .card .name {
+      font-size: 12.5px;
+    }
+
+    .card .meta {
+      font-size: 11.5px;
+    }
+
+    .legend {
+      display: none;
+    }
+
+    .leaflet-control-zoom {
+      margin-top: 12px !important;
+    }
+
+    .photo-marker {
+      width: 72px;
+      height: 58px;
+      border-radius: 12px;
+    }
+
+    .photo-marker .label {
+      font-size: 10px;
+    }
+
+    .popup-img {
+      width: 210px;
+      height: 130px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .panel {
+      max-height: 57dvh;
+    }
+
+    .subtitle {
+      display: none;
+    }
+
+    .buttons button {
+      min-width: 78px;
+    }
+
+    .gallery-title .gallery-hint {
+      display: none;
+    }
+
+    .photo-marker {
+      width: 66px;
+      height: 54px;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1 class="title">冰岛 6 天自驾动态路线图</h1>
+  <p class="subtitle">电脑端和手机端自适应。点击 Day 1–Day 6 查看路线动画、景点编号和真实照片；轨迹会保留，直到点击“清除轨迹”。</p>
+
+  <div class="buttons" id="dayButtons"></div>
+
+  <div class="utility">
+    <button id="playAllBtn">自动播放 1–6 天</button>
+    <button id="clearBtn">清除轨迹</button>
+  </div>
+
+  <div class="status" id="status">当前：正在准备真实照片。稍等几秒后请选择 Day 1–Day 6。</div>
+
+  <div class="gallery-title">
+    <span id="galleryTitle">当天景点图片</span>
+    <span class="gallery-hint">点击卡片可定位</span>
+  </div>
+
+  <div class="gallery" id="gallery">
+    <div class="status">点击某一天后，这里会显示当天所有景点的真实照片和编号。</div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+const tripDays = [{"day": 1, "date": "6.12", "title": "Reykjavík → Golden Circle → Selfoss / Hella", "overnight": "Selfoss / Hella", "color": "#D84A38", "points": [{"id": "1.1", "name": "Reykjavík", "lat": 64.1466, "lon": -21.9426, "note": "Start / pick up car", "query": "Reykjavík Iceland", "photo": ""}, {"id": "1.2", "name": "Þingvellir National Park", "lat": 64.2559, "lon": -21.1295, "note": "Golden Circle", "query": "Þingvellir National Park Iceland", "photo": ""}, {"id": "1.3", "name": "Geysir Geothermal Area", "lat": 64.3138, "lon": -20.299, "note": "Golden Circle", "query": "Geysir geothermal area Iceland", "photo": ""}, {"id": "1.4", "name": "Gullfoss Waterfall", "lat": 64.3271, "lon": -20.1199, "note": "Golden Circle", "query": "Gullfoss waterfall Iceland", "photo": ""}, {"id": "1.5", "name": "Kerið Crater", "lat": 64.0413, "lon": -20.8851, "note": "Optional stop", "query": "Kerið crater Iceland", "photo": ""}, {"id": "1.6", "name": "Selfoss", "lat": 63.9335, "lon": -20.997, "note": "Overnight option", "query": "Selfoss Iceland town", "photo": ""}, {"id": "1.7", "name": "Hella", "lat": 63.8358, "lon": -20.4007, "note": "Overnight option", "query": "Hella Iceland town", "photo": ""}]}, {"day": 2, "date": "6.13", "title": "Selfoss / Hella → South Coast → Vík", "overnight": "Vík", "color": "#F28E2B", "points": [{"id": "2.1", "name": "Selfoss / Hella area", "lat": 63.9335, "lon": -20.997, "note": "Start", "query": "Selfoss Iceland", "photo": ""}, {"id": "2.2", "name": "Seljalandsfoss", "lat": 63.6156, "lon": -19.9886, "note": "Waterfall", "query": "Seljalandsfoss Iceland", "photo": ""}, {"id": "2.3", "name": "Gljúfrabúi", "lat": 63.6209, "lon": -19.9856, "note": "Hidden waterfall", "query": "Gljúfrabúi Iceland waterfall", "photo": ""}, {"id": "2.4", "name": "Skógafoss", "lat": 63.5321, "lon": -19.5114, "note": "Waterfall", "query": "Skógafoss Iceland", "photo": ""}, {"id": "2.5", "name": "Sólheimajökull Glacier", "lat": 63.5308, "lon": -19.3707, "note": "Glacier tongue / optional tour", "query": "Sólheimajökull glacier Iceland", "photo": ""}, {"id": "2.6", "name": "Dyrhólaey", "lat": 63.4027, "lon": -19.126, "note": "Viewpoint", "query": "Dyrhólaey Iceland", "photo": ""}, {"id": "2.7", "name": "Reynisfjara Black Sand Beach", "lat": 63.4043, "lon": -19.0445, "note": "Black sand beach", "query": "Reynisfjara black sand beach Iceland", "photo": ""}, {"id": "2.8", "name": "Vík", "lat": 63.4186, "lon": -19.006, "note": "Overnight", "query": "Vík í Mýrdal Iceland", "photo": ""}]}, {"day": 3, "date": "6.14", "title": "Vík → Skaftafell → Jökulsárlón / Diamond Beach → Höfn", "overnight": "Höfn / Skaftafell / Kirkjubæjarklaustur", "color": "#EDC948", "points": [{"id": "3.1", "name": "Vík", "lat": 63.4186, "lon": -19.006, "note": "Start", "query": "Vík Iceland", "photo": ""}, {"id": "3.2", "name": "Fjaðrárgljúfur Canyon", "lat": 63.7713, "lon": -18.1721, "note": "Canyon", "query": "Fjaðrárgljúfur canyon Iceland", "photo": ""}, {"id": "3.3", "name": "Skaftafell", "lat": 64.015, "lon": -16.9667, "note": "National park area", "query": "Skaftafell Iceland", "photo": ""}, {"id": "3.4", "name": "Svartifoss", "lat": 64.0275, "lon": -16.9752, "note": "Optional hike", "query": "Svartifoss Iceland", "photo": ""}, {"id": "3.5", "name": "Jökulsárlón Glacier Lagoon", "lat": 64.0784, "lon": -16.2306, "note": "Glacier lagoon", "query": "Jökulsárlón glacier lagoon Iceland", "photo": ""}, {"id": "3.6", "name": "Diamond Beach", "lat": 64.0439, "lon": -16.1771, "note": "Black beach with ice", "query": "Diamond Beach Iceland Jökulsárlón", "photo": ""}, {"id": "3.7", "name": "Höfn", "lat": 64.2497, "lon": -15.202, "note": "Overnight option", "query": "Höfn Iceland", "photo": ""}]}, {"day": 4, "date": "6.15", "title": "Glacier Lagoon area → South Coast return → Hella / Selfoss", "overnight": "Hella / Selfoss", "color": "#59A14F", "points": [{"id": "4.1", "name": "Höfn / Glacier Lagoon area", "lat": 64.0784, "lon": -16.2306, "note": "Start / morning photos", "query": "Jökulsárlón Iceland", "photo": ""}, {"id": "4.2", "name": "Skaftafell", "lat": 64.015, "lon": -16.9667, "note": "Optional glacier hike", "query": "Skaftafell glacier Iceland", "photo": ""}, {"id": "4.3", "name": "Eldhraun Lava Field", "lat": 63.7076, "lon": -18.105, "note": "Lava field", "query": "Eldhraun lava field Iceland", "photo": ""}, {"id": "4.4", "name": "Vík", "lat": 63.4186, "lon": -19.006, "note": "Break / dinner", "query": "Vík Iceland village", "photo": ""}, {"id": "4.5", "name": "Hella", "lat": 63.8358, "lon": -20.4007, "note": "Overnight option", "query": "Hella Iceland", "photo": ""}, {"id": "4.6", "name": "Selfoss", "lat": 63.9335, "lon": -20.997, "note": "Overnight option", "query": "Selfoss Iceland", "photo": ""}]}, {"day": 5, "date": "6.16", "title": "Selfoss / Hella → Snæfellsnes Peninsula", "overnight": "Grundarfjörður / Stykkishólmur / Ólafsvík", "color": "#4E79A7", "points": [{"id": "5.1", "name": "Selfoss / Hella area", "lat": 63.9335, "lon": -20.997, "note": "Start", "query": "Selfoss Iceland town", "photo": ""}, {"id": "5.2", "name": "Borgarnes", "lat": 64.5383, "lon": -21.9206, "note": "Break / supplies", "query": "Borgarnes Iceland", "photo": ""}, {"id": "5.3", "name": "Gerðuberg Basalt Cliffs", "lat": 64.8598, "lon": -22.3599, "note": "Basalt cliffs", "query": "Gerðuberg basalt cliffs Iceland", "photo": ""}, {"id": "5.4", "name": "Búðakirkja Black Church", "lat": 64.8218, "lon": -23.384, "note": "Black church", "query": "Búðakirkja black church Iceland", "photo": ""}, {"id": "5.5", "name": "Arnarstapi", "lat": 64.7668, "lon": -23.6277, "note": "Coastal walk", "query": "Arnarstapi Iceland", "photo": ""}, {"id": "5.6", "name": "Lóndrangar", "lat": 64.7358, "lon": -23.773, "note": "Sea stacks", "query": "Lóndrangar Iceland", "photo": ""}, {"id": "5.7", "name": "Djúpalónssandur", "lat": 64.753, "lon": -23.8986, "note": "Black pebble beach", "query": "Djúpalónssandur Iceland", "photo": ""}, {"id": "5.8", "name": "Kirkjufell", "lat": 64.9417, "lon": -23.3069, "note": "Mountain / sunset spot", "query": "Kirkjufell Iceland", "photo": ""}, {"id": "5.9", "name": "Grundarfjörður", "lat": 64.9243, "lon": -23.263, "note": "Overnight option", "query": "Grundarfjörður Iceland", "photo": ""}, {"id": "5.10", "name": "Stykkishólmur", "lat": 65.0754, "lon": -22.7298, "note": "Overnight option", "query": "Stykkishólmur Iceland", "photo": ""}]}, {"day": 6, "date": "6.17", "title": "Snæfellsnes → Reykjavík / Keflavík", "overnight": "Return / airport", "color": "#B07AA1", "points": [{"id": "6.1", "name": "Grundarfjörður", "lat": 64.9243, "lon": -23.263, "note": "Start", "query": "Grundarfjörður Iceland", "photo": ""}, {"id": "6.2", "name": "Stykkishólmur", "lat": 65.0754, "lon": -22.7298, "note": "Town / optional stop", "query": "Stykkishólmur Iceland", "photo": ""}, {"id": "6.3", "name": "Berserkjahraun Lava Field", "lat": 64.9998, "lon": -22.9756, "note": "Lava field", "query": "Berserkjahraun Iceland", "photo": ""}, {"id": "6.4", "name": "Borgarnes", "lat": 64.5383, "lon": -21.9206, "note": "Break", "query": "Borgarnes Iceland", "photo": ""}, {"id": "6.5", "name": "Reykjavík", "lat": 64.1466, "lon": -21.9426, "note": "Return", "query": "Reykjavík Iceland", "photo": ""}, {"id": "6.6", "name": "Keflavík Airport", "lat": 63.985, "lon": -22.6056, "note": "Airport option", "query": "Keflavík International Airport Iceland", "photo": ""}]}];
+const map = L.map('map', { zoomControl: true }).setView([64.1574, -20.407659090909092], 7);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+const fallbackSvg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="360" height="240"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#fef3c7"/></linearGradient></defs><rect width="360" height="240" fill="url(#g)"/><path d="M0 168 C75 120 145 145 205 108 C270 69 320 98 360 72 L360 240 L0 240 Z" fill="#64748b"/><path d="M0 200 C110 174 210 214 360 184 L360 240 L0 240 Z" fill="#0f766e" opacity=".7"/><text x="30" y="130" font-family="Arial" font-size="24" font-weight="700" fill="#334155">Photo loading...</text></svg>`);
+const fallbackPhoto = `data:image/svg+xml;charset=utf-8,${fallbackSvg}`;
+
+const photoCache = new Map();
+const bounds = [];
+const drawnLayers = [];
+const drawnDays = new Set();
+let animationToken = 0;
+
+async function fetchCommonsPhoto(query) {
+  if (photoCache.has(query)) return photoCache.get(query);
+
+  const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|mime|extmetadata&iiurlwidth=500&format=json&origin=*`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const pages = data.query && data.query.pages ? Object.values(data.query.pages) : [];
+    const candidates = pages
+      .map(p => p.imageinfo && p.imageinfo[0])
+      .filter(info => info && info.mime && info.mime.startsWith('image/') && info.thumburl);
+
+    const chosen = candidates[0];
+    const photo = chosen ? chosen.thumburl : fallbackPhoto;
+    photoCache.set(query, photo);
+    return photo;
+  } catch (err) {
+    photoCache.set(query, fallbackPhoto);
+    return fallbackPhoto;
+  }
+}
+
+async function loadAllPhotos() {
+  const points = tripDays.flatMap(d => d.points);
+  let done = 0;
+  const total = points.length;
+  const batches = [];
+
+  for (let i = 0; i < points.length; i += 6) {
+    batches.push(points.slice(i, i + 6));
+  }
+
+  for (const batch of batches) {
+    await Promise.all(batch.map(async p => {
+      p.photo = await fetchCommonsPhoto(p.query);
+      done++;
+      document.getElementById('status').innerHTML = `当前：正在加载真实景点照片 ${done} / ${total}。`;
+    }));
+  }
+
+  document.getElementById('status').innerHTML = '当前：真实照片加载完成。请选择 Day 1–Day 6。';
+}
+
+function makeTinyRefIcon(id, color) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="tiny-ref-marker" style="background:${color}">${id}</div>`,
+    iconSize: [34, 22],
+    iconAnchor: [17, 11],
+    popupAnchor: [0, -12]
+  });
+}
+
+function makePhotoIcon(point, color) {
+  const src = point.photo || fallbackPhoto;
+  return L.divIcon({
+    className: '',
+    html: `<div class="photo-marker">
+             <img src="${src}">
+             <span class="label" style="background:${color}">${point.id}</span>
+           </div>`,
+    iconSize: [88, 70],
+    iconAnchor: [44, 70],
+    popupAnchor: [0, -66]
+  });
+}
+
+function makePulseIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="pulse-marker" style="color:${color}"></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -12]
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function interpolate(a, b, steps) {
+  const result = [];
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    result.push([
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t
+    ]);
+  }
+  return result;
+}
+
+function popupHtml(point, dayObj) {
+  const src = point.photo || fallbackPhoto;
+  return `
+    <b>${point.id} · ${point.name}</b>
+    <br>${point.note}
+    <br><img class="popup-img" src="${src}" alt="${point.name}">
+    <small>Day ${dayObj.day} · ${dayObj.title}</small><br>
+    <small>住宿：${dayObj.overnight}</small>
+  `;
+}
+
+function renderGallery(dayObj) {
+  const gallery = document.getElementById('gallery');
+  document.getElementById('galleryTitle').textContent = `Day ${dayObj.day} · ${dayObj.date} 景点图片`;
+  gallery.innerHTML = '';
+
+  dayObj.points.forEach(point => {
+    const card = document.createElement('div');
+    const src = point.photo || fallbackPhoto;
+
+    card.className = 'card';
+    card.innerHTML = `
+      <img src="${src}" alt="${point.name}">
+      <div>
+        <div class="name"><span class="num-badge" style="background:${dayObj.color}">${point.id}</span>${point.name}</div>
+        <div class="meta">${point.note}</div>
+      </div>
+    `;
+
+    card.onclick = () => map.flyTo([point.lat, point.lon], 10, { duration: 0.8 });
+    gallery.appendChild(card);
+  });
+}
+
+function addDayPhotoMarkers(dayObj) {
+  const markers = [];
+
+  dayObj.points.forEach((point, idx) => {
+    const marker = L.marker([point.lat, point.lon], {
+      icon: makePhotoIcon(point, dayObj.color),
+      zIndexOffset: 600 + idx
+    })
+      .bindPopup(popupHtml(point, dayObj))
+      .addTo(map);
+
+    drawnLayers.push(marker);
+    markers.push(marker);
+  });
+
+  return markers;
+}
+
+async function drawDay(dayObj, shouldFit = true) {
+  const token = ++animationToken;
+  const dayNumber = dayObj.day;
+
+  renderGallery(dayObj);
+
+  if (drawnDays.has(dayNumber)) {
+    document.getElementById('status').innerHTML =
+      `<b>Day ${dayNumber} 已经绘制过。</b><br>${dayObj.title}<br>当天图片已切换显示。需要重画请先点击“清除轨迹”。`;
+    return;
+  }
+
+  const btn = document.querySelector(`[data-day="${dayNumber}"]`);
+  if (btn) btn.disabled = true;
+
+  document.getElementById('status').innerHTML =
+    `<b>正在绘制 Day ${dayNumber} · ${dayObj.date}</b><br>${dayObj.title}<br>住宿建议：${dayObj.overnight}`;
+
+  const latlngs = dayObj.points.map(p => [p.lat, p.lon]);
+
+  const animatedLine = L.polyline([], {
+    color: dayObj.color,
+    weight: 5,
+    opacity: 0.88,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(map);
+
+  drawnLayers.push(animatedLine);
+
+  const movingMarker = L.marker(latlngs[0], {
+    icon: makePulseIcon(dayObj.color),
+    zIndexOffset: 1000
+  }).addTo(map);
+
+  drawnLayers.push(movingMarker);
+
+  const markers = addDayPhotoMarkers(dayObj);
+  await sleep(160);
+
+  let currentLine = [latlngs[0]];
+  animatedLine.setLatLngs(currentLine);
+
+  for (let i = 0; i < latlngs.length - 1; i++) {
+    const frames = interpolate(latlngs[i], latlngs[i + 1], 34);
+
+    for (const frame of frames) {
+      if (token !== animationToken) return;
+      currentLine.push(frame);
+      animatedLine.setLatLngs(currentLine);
+      movingMarker.setLatLng(frame);
+      await sleep(18);
+    }
+
+    const stop = dayObj.points[i + 1];
+    document.getElementById('status').innerHTML =
+      `<b>Day ${dayNumber} · 已到达：${stop.id} ${stop.name}</b><br>${dayObj.title}<br>住宿建议：${dayObj.overnight}`;
+
+    await sleep(110);
+  }
+
+  if (map.hasLayer(movingMarker)) map.removeLayer(movingMarker);
+  const movingIndex = drawnLayers.indexOf(movingMarker);
+  if (movingIndex >= 0) drawnLayers.splice(movingIndex, 1);
+
+  drawnDays.add(dayNumber);
+
+  if (shouldFit) {
+    const group = L.featureGroup(markers.concat([animatedLine]));
+    map.fitBounds(group.getBounds(), { padding: [70, 70] });
+  }
+
+  document.getElementById('status').innerHTML =
+    `<b>Day ${dayNumber} 绘制完成。</b><br>${dayObj.title}<br>住宿建议：${dayObj.overnight}`;
+}
+
+async function playAll() {
+  document.getElementById('playAllBtn').disabled = true;
+
+  for (const dayObj of tripDays) {
+    if (!drawnDays.has(dayObj.day)) {
+      await drawDay(dayObj, false);
+      await sleep(350);
+    } else {
+      renderGallery(dayObj);
+    }
+  }
+
+  fitAllDrawn();
+  document.getElementById('playAllBtn').disabled = false;
+}
+
+function clearTracks() {
+  animationToken++;
+
+  drawnLayers.forEach(layer => {
+    if (map.hasLayer(layer)) map.removeLayer(layer);
+  });
+
+  drawnLayers.length = 0;
+  drawnDays.clear();
+
+  document.querySelectorAll('[data-day]').forEach(btn => btn.disabled = false);
+  document.getElementById('playAllBtn').disabled = false;
+  document.getElementById('status').innerHTML = '当前：已清除全部轨迹。请选择 Day 1–Day 6。';
+  document.getElementById('galleryTitle').textContent = '当天景点图片';
+  document.getElementById('gallery').innerHTML =
+    '<div class="status">点击某一天后，这里会显示当天所有景点的真实照片和编号。</div>';
+}
+
+function fitAllDrawn() {
+  if (drawnLayers.length === 0) {
+    map.fitBounds(bounds, { padding: [30, 30] });
+    return;
+  }
+
+  const group = L.featureGroup(drawnLayers.filter(layer => layer.getBounds || layer.getLatLng));
+  map.fitBounds(group.getBounds(), { padding: [70, 70] });
+}
+
+function initStaticReferenceMarkers() {
+  tripDays.forEach(dayObj => {
+    dayObj.points.forEach(point => {
+      bounds.push([point.lat, point.lon]);
+
+      L.marker([point.lat, point.lon], {
+        icon: makeTinyRefIcon(point.id, dayObj.color),
+        zIndexOffset: 10
+      })
+        .bindPopup(`<b>${point.id} · ${point.name}</b><br>Day ${dayObj.day} · ${point.note}`)
+        .addTo(map);
+    });
+  });
+
+  map.fitBounds(bounds, { padding: [30, 30] });
+}
+
+function initControls() {
+  const container = document.getElementById('dayButtons');
+  const legend = document.getElementById('legend');
+
+  tripDays.forEach(dayObj => {
+    const btn = document.createElement('button');
+
+    btn.textContent = `Day ${dayObj.day} · ${dayObj.date}`;
+    btn.style.background = dayObj.color;
+    btn.dataset.day = dayObj.day;
+    btn.onclick = () => drawDay(dayObj);
+
+    container.appendChild(btn);
+
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <span class="dot" style="background:${dayObj.color}"></span>
+      <div>
+        <div class="legend-title">Day ${dayObj.day} · ${dayObj.date}：${dayObj.title}</div>
+        <div class="legend-sub">住宿：${dayObj.overnight}</div>
+      </div>
+    `;
+
+    legend.appendChild(item);
+  });
+
+  document.getElementById('clearBtn').onclick = clearTracks;
+  document.getElementById('playAllBtn').onclick = playAll;
+}
+
+initStaticReferenceMarkers();
+initControls();
+loadAllPhotos();
+
+window.addEventListener('resize', () => {
+  setTimeout(() => map.invalidateSize(), 150);
+});
+</script>
+</body>
+</html>
